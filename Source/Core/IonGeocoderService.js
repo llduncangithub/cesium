@@ -1,5 +1,6 @@
 define([
     './Check',
+    './Credit',
     './defaultValue',
     './defined',
     './defineProperties',
@@ -9,6 +10,7 @@ define([
     './Resource'
 ], function (
     Check,
+    Credit,
     defaultValue,
     defined,
     defineProperties,
@@ -23,7 +25,9 @@ define([
      * @alias IonGeocoderService
      * @constructor
      *
-     * @param {Object} [options] Object with the following properties:
+     * @param {Object} options Object with the following properties:
+     * @param {Scene} options.scene The scene
+     * @param {String} [options.accessToken=Ion.defaultAccessToken] The access token to use.
      * @param {String} [options.accessToken=Ion.defaultAccessToken] The access token to use.
      * @param {String|Resource} [options.server=Ion.defaultServer] The resource to the Cesium ion API server.
      *
@@ -32,9 +36,18 @@ define([
     function IonGeocoderService(options) {
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);
 
+        //>>includeStart('debug', pragmas.debug);
+        Check.typeOf.object('options.scene', options.scene);
+        //>>includeEnd('debug');
+
         var accessToken = defaultValue(options.accessToken, Ion.defaultAccessToken);
         var server = Resource.createIfNeeded(defaultValue(options.server, Ion.defaultServer));
         server.appendForwardSlash();
+
+        var defaultTokenCredit = Ion.getDefaultTokenCredit(accessToken);
+        if (defined(defaultTokenCredit)) {
+            options.scene.frameState.creditDisplay.addDefaultCredit(Credit.clone(defaultTokenCredit));
+        }
 
         var searchEndpoint = server.getDerivedResource({
             url: 'v1/geocode'
@@ -54,7 +67,7 @@ define([
      *
      * @param {String} query The query to be sent to the geocoder service
      * @param {GeocodeType} [type=GeocodeType.SEARCH] The type of geocode to perform.
-     * @returns {Promise<GeocoderResult[]>}
+     * @returns {Promise<GeocoderService~Result[]>}
      */
     IonGeocoderService.prototype.geocode = function (query, geocodeType) {
         return this._pelias.geocode(query, geocodeType);

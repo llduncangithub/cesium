@@ -12,7 +12,7 @@ define([
         '../../Core/formatError',
         '../../Core/requestAnimationFrame',
         '../../Core/ScreenSpaceEventHandler',
-        '../../Scene/BingMapsImageryProvider',
+        '../../Scene/createWorldImagery',
         '../../Scene/Globe',
         '../../Scene/Moon',
         '../../Scene/Scene',
@@ -36,7 +36,7 @@ define([
         formatError,
         requestAnimationFrame,
         ScreenSpaceEventHandler,
-        BingMapsImageryProvider,
+        createWorldImagery,
         Globe,
         Moon,
         Scene,
@@ -95,14 +95,21 @@ define([
         requestAnimationFrame(render);
     }
 
+    function configureSceneResolution(widget) {
+        var devicePixelRatio = window.devicePixelRatio;
+        var resolutionScale = widget._resolutionScale * devicePixelRatio;
+        if (defined(widget._scene)) {
+            widget._scene.pixelRatio = resolutionScale;
+        }
+
+        return resolutionScale;
+    }
+
     function configureCanvasSize(widget) {
         var canvas = widget._canvas;
         var width = canvas.clientWidth;
         var height = canvas.clientHeight;
-        var resolutionScale = widget._resolutionScale;
-        if (!widget._supportsImageRenderingPixelated) {
-            resolutionScale *= defaultValue(window.devicePixelRatio, 1.0);
-        }
+        var resolutionScale = configureSceneResolution(widget);
 
         widget._canvasWidth = width;
         widget._canvasHeight = height;
@@ -114,6 +121,7 @@ define([
         canvas.height = height;
 
         widget._canRender = width !== 0 && height !== 0;
+        widget._lastDevicePixelRatio = window.devicePixelRatio;
     }
 
     function configureCameraFrustum(widget) {
@@ -140,7 +148,7 @@ define([
      * @param {Element|String} container The DOM element or ID that will contain the widget.
      * @param {Object} [options] Object with the following properties:
      * @param {Clock} [options.clock=new Clock()] The clock to use to control current time.
-     * @param {ImageryProvider} [options.imageryProvider=new BingMapsImageryProvider()] The imagery provider to serve as the base layer. If set to <code>false</code>, no imagery provider will be added.
+     * @param {ImageryProvider} [options.imageryProvider=createWorldImagery()] The imagery provider to serve as the base layer. If set to <code>false</code>, no imagery provider will be added.
      * @param {TerrainProvider} [options.terrainProvider=new EllipsoidTerrainProvider] The terrain provider.
      * @param {SkyBox} [options.skyBox] The skybox used to render the stars.  When <code>undefined</code>, the default stars are used. If set to <code>false</code>, no skyBox, Sun, or Moon will be added.
      * @param {SkyAtmosphere} [options.skyAtmosphere] Blue sky, and the glow around the Earth's limb.  Set to <code>false</code> to turn it off.
@@ -203,7 +211,7 @@ define([
 
         container = getElement(container);
 
-        options = defaultValue(options, {});
+        options = defaultValue(options, defaultValue.EMPTY_OBJECT);
 
         //Configure the widget DOM elements
         var element = document.createElement('div');
@@ -240,6 +248,7 @@ define([
         this._canvas = canvas;
         this._canvasWidth = 0;
         this._canvasHeight = 0;
+        this._lastDevicePixelRatio = 0;
         this._creditViewport = creditViewport;
         this._creditContainer = creditContainer;
         this._innerCreditContainer = innerCreditContainer;
@@ -271,6 +280,7 @@ define([
 
             scene.camera.constrainedAxis = Cartesian3.UNIT_Z;
 
+            configureSceneResolution(this);
             configureCameraFrustum(this);
 
             var ellipsoid = defaultValue(scene.mapProjection.ellipsoid, Ellipsoid.WGS84);
@@ -315,9 +325,7 @@ define([
             //Set the base imagery layer
             var imageryProvider = (options.globe === false) ? false : options.imageryProvider;
             if (!defined(imageryProvider)) {
-                imageryProvider = new BingMapsImageryProvider({
-                    url : 'https://dev.virtualearth.net'
-                });
+                imageryProvider = createWorldImagery();
             }
 
             if (imageryProvider !== false) {
@@ -674,7 +682,7 @@ define([
         var canvas = this._canvas;
         var width = canvas.clientWidth;
         var height = canvas.clientHeight;
-        if (!this._forceResize && this._canvasWidth === width && this._canvasHeight === height) {
+        if (!this._forceResize && this._canvasWidth === width && this._canvasHeight === height && this._lastDevicePixelRatio === window.devicePixelRatio) {
             return;
         }
         this._forceResize = false;

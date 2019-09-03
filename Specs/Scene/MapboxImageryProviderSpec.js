@@ -1,6 +1,7 @@
 defineSuite([
         'Scene/MapboxImageryProvider',
         'Core/DefaultProxy',
+        'Core/MapboxApi',
         'Core/Math',
         'Core/Rectangle',
         'Core/RequestScheduler',
@@ -14,6 +15,7 @@ defineSuite([
     ], function(
         MapboxImageryProvider,
         DefaultProxy,
+        MapboxApi,
         CesiumMath,
         Rectangle,
         RequestScheduler,
@@ -103,7 +105,7 @@ defineSuite([
 
             return provider.requestImage(0, 0, 0).then(function(image) {
                 expect(Resource._Implementations.createImage).toHaveBeenCalled();
-                expect(image).toBeInstanceOf(Image);
+                expect(image).toBeImageOrImageBitmap();
             });
         });
     });
@@ -126,7 +128,7 @@ defineSuite([
 
             return provider.requestImage(0, 0, 0).then(function(image) {
                 expect(Resource._Implementations.createImage).toHaveBeenCalled();
-                expect(image).toBeInstanceOf(Image);
+                expect(image).toBeImageOrImageBitmap();
             });
         });
     });
@@ -137,7 +139,7 @@ defineSuite([
             mapId: 'test-id'
         });
 
-        expect(provider.url).toEqual('made/up/mapbox/server/');
+        expect(provider.url).toEqual('made/up/mapbox/server/test-id/{z}/{x}/{y}.png?access_token=' + MapboxApi.getAccessToken());
 
         return pollToPromise(function() {
             return provider.ready;
@@ -155,7 +157,7 @@ defineSuite([
 
             return provider.requestImage(0, 0, 0).then(function(image) {
                 expect(Resource._Implementations.createImage).toHaveBeenCalled();
-                expect(image).toBeInstanceOf(Image);
+                expect(image).toBeImageOrImageBitmap();
             });
         });
     });
@@ -187,7 +189,7 @@ defineSuite([
 
             return provider.requestImage(0, 0, 0).then(function(image) {
                 expect(Resource._Implementations.createImage).toHaveBeenCalled();
-                expect(image).toBeInstanceOf(Image);
+                expect(image).toBeImageOrImageBitmap();
             });
         });
     });
@@ -271,7 +273,7 @@ defineSuite([
             return pollToPromise(function() {
                 return imagery.state === ImageryState.RECEIVED;
             }).then(function() {
-                expect(imagery.image).toBeInstanceOf(Image);
+                expect(imagery.image).toBeImageOrImageBitmap();
                 expect(tries).toEqual(2);
                 imagery.releaseReference();
             });

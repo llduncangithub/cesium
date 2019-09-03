@@ -1,5 +1,6 @@
 defineSuite([
         'DataSources/GeometryVisualizer',
+        'Core/ApproximateTerrainHeights',
         'Core/BoundingSphere',
         'Core/Cartesian3',
         'Core/Color',
@@ -19,7 +20,6 @@ defineSuite([
         'DataSources/SampledProperty',
         'DataSources/StaticGeometryColorBatch',
         'DataSources/StaticGeometryPerMaterialBatch',
-        'DataSources/StaticGroundGeometryColorBatch',
         'DataSources/StaticOutlineGeometryBatch',
         'Scene/ClassificationType',
         'Scene/GroundPrimitive',
@@ -31,6 +31,7 @@ defineSuite([
         'Specs/pollToPromise'
     ], function(
         GeometryVisualizer,
+        ApproximateTerrainHeights,
         BoundingSphere,
         Cartesian3,
         Color,
@@ -50,7 +51,6 @@ defineSuite([
         SampledProperty,
         StaticGeometryColorBatch,
         StaticGeometryPerMaterialBatch,
-        StaticGroundGeometryColorBatch,
         StaticOutlineGeometryBatch,
         ClassificationType,
         GroundPrimitive,
@@ -77,8 +77,28 @@ defineSuite([
         // Leave ground primitive uninitialized
         GroundPrimitive._initialized = false;
         GroundPrimitive._initPromise = undefined;
-        GroundPrimitive._terrainHeights = undefined;
+        ApproximateTerrainHeights._initPromise = undefined;
+        ApproximateTerrainHeights._terrainHeights = undefined;
+
     });
+
+    function visualizerUpdated(visualizer) {
+        return pollToPromise(function() {
+            scene.initializeFrame();
+            var isUpdated = visualizer.update(time);
+            scene.render(time);
+            return isUpdated;
+        });
+    }
+
+    function visualizerEmpty(visualizer) {
+        return pollToPromise(function() {
+            scene.initializeFrame();
+            expect(visualizer.update(time)).toBe(true);
+            scene.render(time);
+            return scene.primitives.length === 0 && scene.groundPrimitives.length === 0;
+        });
+    }
 
     it('Can create and destroy', function() {
         var objects = new EntityCollection();
@@ -105,12 +125,7 @@ defineSuite([
         entity.ellipse = ellipse;
         objects.add(entity);
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
             expect(attributes).toBeDefined();
@@ -121,12 +136,7 @@ defineSuite([
 
             objects.remove(entity);
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                expect(visualizer.update(time)).toBe(true);
-                scene.render(time);
-                return scene.primitives.length === 0;
-            }).then(function(){
+            return visualizerEmpty(visualizer).then(function(){
                 visualizer.destroy();
             });
         });
@@ -140,18 +150,14 @@ defineSuite([
         ellipse.semiMajorAxis = new ConstantProperty(2);
         ellipse.semiMinorAxis = new ConstantProperty(1);
         ellipse.material = new GridMaterialProperty();
+        ellipse.height = new ConstantProperty(1.0);
 
         var entity = new Entity();
         entity.position = new ConstantPositionProperty(new Cartesian3(1234, 5678, 9101112));
         entity.ellipse = ellipse;
         objects.add(entity);
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
             expect(attributes).toBeDefined();
@@ -162,12 +168,7 @@ defineSuite([
 
             objects.remove(entity);
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                expect(visualizer.update(time)).toBe(true);
-                scene.render(time);
-                return scene.primitives.length === 0;
-            }).then(function(){
+            return visualizerEmpty(visualizer).then(function(){
                 visualizer.destroy();
             });
         });
@@ -188,12 +189,7 @@ defineSuite([
         entity.ellipse = ellipse;
         objects.add(entity);
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
             expect(attributes).toBeDefined();
@@ -204,12 +200,7 @@ defineSuite([
 
             objects.remove(entity);
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                expect(visualizer.update(time)).toBe(true);
-                scene.render(time);
-                return scene.primitives.length === 0;
-            }).then(function(){
+            return visualizerEmpty(visualizer).then(function(){
                 visualizer.destroy();
             });
         });
@@ -230,12 +221,7 @@ defineSuite([
         entity.ellipse = ellipse;
         objects.add(entity);
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
             expect(attributes).toBeDefined();
@@ -246,12 +232,7 @@ defineSuite([
 
             objects.remove(entity);
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                expect(visualizer.update(time)).toBe(true);
-                scene.render(time);
-                return scene.primitives.length === 0;
-            }).then(function(){
+            return visualizerEmpty(visualizer).then(function(){
                 visualizer.destroy();
             });
         });
@@ -273,12 +254,7 @@ defineSuite([
         entity.ellipse = ellipse;
         objects.add(entity);
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
             expect(attributes).toBeDefined();
@@ -288,12 +264,7 @@ defineSuite([
 
             objects.remove(entity);
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                expect(visualizer.update(time)).toBe(true);
-                scene.render(time);
-                return scene.primitives.length === 0;
-            }).then(function(){
+            return visualizerEmpty(visualizer).then(function(){
                 visualizer.destroy();
             });
         });
@@ -315,23 +286,13 @@ defineSuite([
         entity.ellipse = ellipse;
         objects.add(entity);
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             expect(primitive.shadows).toBe(shadows);
 
             objects.remove(entity);
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                expect(visualizer.update(time)).toBe(true);
-                scene.render(time);
-                return scene.primitives.length === 0;
-            }).then(function(){
+            return visualizerEmpty(visualizer).then(function(){
                 visualizer.destroy();
             });
         });
@@ -368,23 +329,13 @@ defineSuite([
         entity.ellipse = ellipse;
         objects.add(entity);
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.groundPrimitives.get(0);
             expect(primitive.classificationType).toBe(type);
 
             objects.remove(entity);
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                expect(visualizer.update(time)).toBe(true);
-                scene.render(time);
-                return scene.primitives.length === 0;
-            }).then(function(){
+            return visualizerEmpty(visualizer).then(function(){
                 visualizer.destroy();
             });
         });
@@ -417,12 +368,7 @@ defineSuite([
         entity.ellipse = ellipse;
         objects.add(entity);
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
             expect(attributes).toBeDefined();
@@ -432,12 +378,7 @@ defineSuite([
 
             ellipse.material = new GridMaterialProperty();
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                var isUpdated = visualizer.update(time);
-                scene.render(time);
-                return isUpdated;
-            }).then(function() {
+            return visualizerUpdated(visualizer).then(function() {
                 primitive = scene.primitives.get(0);
                 attributes = primitive.getGeometryInstanceAttributes(entity);
                 expect(attributes).toBeDefined();
@@ -473,12 +414,7 @@ defineSuite([
             }
         });
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
             expect(attributes).toBeDefined();
@@ -487,12 +423,7 @@ defineSuite([
             color = Color.RED.withAlpha(0.5);
             entity.ellipse.outlineColor.setValue(color);
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                var isUpdated = visualizer.update(time);
-                scene.render(time);
-                return isUpdated;
-            });
+            return visualizerUpdated(visualizer);
         }).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
@@ -585,6 +516,23 @@ defineSuite([
         expect(entityCollection.collectionChanged.numberOfListeners).toEqual(0);
     });
 
+    it('calls destroy on all updaterSets', function() {
+        var entityCollection = new EntityCollection();
+        var visualizer = new GeometryVisualizer(scene, entityCollection, scene.primitives, scene.groundPrimitives);
+
+        var destroySpy = jasmine.createSpy('destroy');
+        visualizer._updaterSets.set('test', {
+            destroy: destroySpy
+        });
+
+        expect(visualizer._updaterSets.values.length).toBe(1);
+
+        visualizer.destroy();
+
+        expect(destroySpy).toHaveBeenCalled();
+        expect(visualizer._updaterSets.values.length).toBe(0);
+    });
+
     it('Computes dynamic geometry bounding sphere.', function() {
         var entityCollection = new EntityCollection();
         var visualizer = new GeometryVisualizer(scene, entityCollection, scene.primitives, scene.groundPrimitives);
@@ -659,12 +607,7 @@ defineSuite([
         });
         objects.add(entity);
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             objects.remove(entity);
 
             var entity2 = new Entity({
@@ -679,13 +622,7 @@ defineSuite([
             });
             objects.add(entity2);
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                var isUpdated = visualizer.update(time);
-                scene.render(time);
-                return isUpdated;
-            }).then(function() {
-
+            return visualizerUpdated(visualizer).then(function() {
                 var primitive = scene.primitives.get(0);
                 var attributes = primitive.getGeometryInstanceAttributes(entity2);
                 expect(attributes).toBeDefined();
@@ -695,12 +632,7 @@ defineSuite([
 
                 objects.remove(entity);
 
-                return pollToPromise(function() {
-                    scene.initializeFrame();
-                    expect(visualizer.update(time)).toBe(true);
-                    scene.render(time);
-                    return scene.primitives.length === 0;
-                }).then(function() {
+                return visualizerEmpty(visualizer).then(function() {
                     visualizer.destroy();
                 });
             });
@@ -721,12 +653,7 @@ defineSuite([
             }
         });
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
             expect(attributes).toBeDefined();
@@ -734,12 +661,7 @@ defineSuite([
 
             entity.show = false;
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                var isUpdated = visualizer.update(time);
-                scene.render(time);
-                return isUpdated;
-            });
+            return visualizerUpdated(visualizer);
         }).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
@@ -766,12 +688,7 @@ defineSuite([
             }
         });
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
             expect(attributes).toBeDefined();
@@ -779,12 +696,7 @@ defineSuite([
 
             entity.show = false;
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                var isUpdated = visualizer.update(time);
-                scene.render(time);
-                return isUpdated;
-            });
+            return visualizerUpdated(visualizer);
         }).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
@@ -807,16 +719,12 @@ defineSuite([
                 semiMinorAxis : 1,
                 material : new GridMaterialProperty({
                     color : createDynamicProperty(Color.BLUE)
-                })
+                }),
+                height : 0.0
             }
         });
 
-        return pollToPromise(function() {
-            scene.initializeFrame();
-            var isUpdated = visualizer.update(time);
-            scene.render(time);
-            return isUpdated;
-        }).then(function() {
+        return visualizerUpdated(visualizer).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
             expect(attributes).toBeDefined();
@@ -824,12 +732,7 @@ defineSuite([
 
             entity.show = false;
 
-            return pollToPromise(function() {
-                scene.initializeFrame();
-                var isUpdated = visualizer.update(time);
-                scene.render(time);
-                return isUpdated;
-            });
+            return visualizerUpdated(visualizer);
         }).then(function() {
             var primitive = scene.primitives.get(0);
             var attributes = primitive.getGeometryInstanceAttributes(entity);
@@ -840,4 +743,139 @@ defineSuite([
             visualizer.destroy();
         });
     });
+
+    it('batches ground entities by identical color if ground entity materials are not supported', function() {
+        spyOn(GroundPrimitive, 'supportsMaterials').and.callFake(function() {
+            return false;
+        });
+        var entities = new EntityCollection();
+        var visualizer = new GeometryVisualizer(scene, entities, scene.primitives, scene.groundPrimitives);
+
+        var blueColor = Color.BLUE.withAlpha(0.5);
+        entities.add({
+            position : new Cartesian3(1, 2, 3),
+            ellipse : {
+                semiMajorAxis : 2,
+                semiMinorAxis : 1,
+                material : blueColor
+            }
+        });
+
+        return visualizerUpdated(visualizer).then(function() {
+            expect(scene.groundPrimitives.length).toEqual(1);
+
+            entities.add({
+                position : new Cartesian3(12, 34, 45),
+                ellipse : {
+                    semiMajorAxis : 2,
+                    semiMinorAxis : 1,
+                    material : blueColor
+                }
+            });
+
+            return visualizerUpdated(visualizer);
+        }).then(function() {
+            expect(scene.groundPrimitives.length).toEqual(1);
+
+            entities.add({
+                position : new Cartesian3(123, 456, 789),
+                ellipse : {
+                    semiMajorAxis : 2,
+                    semiMinorAxis : 1,
+                    material : Color.BLUE.withAlpha(0.6)
+                }
+            });
+
+            return visualizerUpdated(visualizer);
+        }).then(function() {
+            expect(scene.groundPrimitives.length).toEqual(2);
+
+            entities.removeAll();
+            visualizer.destroy();
+        });
+    });
+
+    it('batches ground entities by material if ground entity materials is supported', function() {
+        if (!GroundPrimitive.isSupported(scene) || !GroundPrimitive.supportsMaterials(scene)) {
+            return;
+        }
+
+        var entities = new EntityCollection();
+        var visualizer = new GeometryVisualizer(scene, entities, scene.primitives, scene.groundPrimitives);
+
+        var blueColor = Color.BLUE.withAlpha(0.5);
+        entities.add({
+            position : Cartesian3.fromDegrees(1, 2),
+            ellipse : {
+                semiMajorAxis : 2,
+                semiMinorAxis : 1,
+                material : blueColor,
+                classificationType : ClassificationType.TERRAIN
+            }
+        });
+
+        return visualizerUpdated(visualizer).then(function() {
+            expect(scene.groundPrimitives.length).toEqual(1);
+
+            entities.add({
+                position : Cartesian3.fromDegrees(12, 34),
+                ellipse : {
+                    semiMajorAxis : 2,
+                    semiMinorAxis : 1,
+                    material : blueColor,
+                    classificationType : ClassificationType.TERRAIN
+                }
+            });
+
+            return visualizerUpdated(visualizer);
+        }).then(function() {
+            expect(scene.groundPrimitives.length).toEqual(1);
+
+            entities.add({
+                position : Cartesian3.fromDegrees(45, 67),
+                ellipse : {
+                    semiMajorAxis : 2,
+                    semiMinorAxis : 1,
+                    material : Color.BLUE.withAlpha(0.6),
+                    classificationType : ClassificationType.TERRAIN
+                }
+            });
+
+            return visualizerUpdated(visualizer);
+        }).then(function() {
+            expect(scene.groundPrimitives.length).toEqual(1);
+
+            entities.add({
+                position : Cartesian3.fromDegrees(-1, -2),
+                ellipse : {
+                    semiMajorAxis : 2,
+                    semiMinorAxis : 1,
+                    material : './Data/Images/White.png',
+                    classificationType : ClassificationType.TERRAIN
+                }
+            });
+
+            return visualizerUpdated(visualizer);
+        }).then(function() {
+            expect(scene.groundPrimitives.length).toEqual(2);
+
+            entities.add({
+                position : Cartesian3.fromDegrees(-12, -34),
+                ellipse : {
+                    semiMajorAxis : 2,
+                    semiMinorAxis : 1,
+                    material : './Data/Images/White.png',
+                    classificationType : ClassificationType.CESIUM_3D_TILE
+                }
+            });
+
+            return visualizerUpdated(visualizer);
+        }).then(function() {
+            expect(scene.groundPrimitives.length).toEqual(3);
+
+            entities.removeAll();
+            visualizer.destroy();
+        });
+    });
+
 }, 'WebGL');

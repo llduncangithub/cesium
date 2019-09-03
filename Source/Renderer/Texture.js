@@ -36,6 +36,9 @@ define([
         TextureMinificationFilter) {
     'use strict';
 
+    /**
+     * @private
+    */
     function Texture(options) {
         options = defaultValue(options, defaultValue.EMPTY_OBJECT);
 
@@ -89,6 +92,21 @@ define([
                         internalFormat = WebGLConstants.R32F;
                         break;
                 }
+            } else if (pixelDatatype === PixelDatatype.HALF_FLOAT) {
+                switch (pixelFormat) {
+                    case PixelFormat.RGBA:
+                        internalFormat = WebGLConstants.RGBA16F;
+                        break;
+                    case PixelFormat.RGB:
+                        internalFormat = WebGLConstants.RGB16F;
+                        break;
+                    case PixelFormat.RG:
+                        internalFormat = WebGLConstants.RG16F;
+                        break;
+                    case PixelFormat.R:
+                        internalFormat = WebGLConstants.R16F;
+                        break;
+                }
             }
         }
 
@@ -128,6 +146,10 @@ define([
 
         if ((pixelDatatype === PixelDatatype.FLOAT) && !context.floatingPointTexture) {
             throw new DeveloperError('When options.pixelDatatype is FLOAT, this WebGL implementation must support the OES_texture_float extension.  Check context.floatingPointTexture.');
+        }
+
+        if ((pixelDatatype === PixelDatatype.HALF_FLOAT) && !context.halfFloatingPointTexture) {
+            throw new DeveloperError('When options.pixelDatatype is HALF_FLOAT, this WebGL implementation must support the OES_texture_half_float extension. Check context.halfFloatingPointTexture.');
         }
 
         if (PixelFormat.isDepthFormat(pixelFormat)) {
@@ -170,10 +192,15 @@ define([
         var textureTarget = gl.TEXTURE_2D;
         var texture = gl.createTexture();
 
-        // TODO: gl.pixelStorei(gl._UNPACK_ALIGNMENT, 4);
-
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(textureTarget, texture);
+
+        var unpackAlignment = 4;
+        if (defined(source) && defined(source.arrayBufferView) && !isCompressed) {
+            unpackAlignment = PixelFormat.alignmentInBytes(pixelFormat, pixelDatatype, width);
+        }
+
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, unpackAlignment);
 
         if (defined(source)) {
             if (defined(source.arrayBufferView)) {
@@ -244,6 +271,15 @@ define([
 
         this.sampler = defined(options.sampler) ? options.sampler : new Sampler();
     }
+
+    /**
+     * This function is identical to using the Texture constructor except that it can be
+     * replaced with a mock/spy in tests.
+     * @private
+     */
+    Texture.create = function(options) {
+        return new Texture(options);
+    };
 
     /**
      * Creates a texture, and copies a subimage of the framebuffer to it.  When called without arguments,
@@ -347,7 +383,7 @@ define([
          * The sampler to use when sampling this texture.
          * Create a sampler by calling {@link Sampler}.  If this
          * parameter is not specified, a default sampler is used.  The default sampler clamps texture
-         * coordinates in both directions, uses linear filtering for both magnification and minifcation,
+         * coordinates in both directions, uses linear filtering for both magnification and minification,
          * and uses a maximum anisotropy of 1.0.
          * @memberof Texture.prototype
          * @type {Object}
@@ -366,13 +402,16 @@ define([
                     (minificationFilter === TextureMinificationFilter.LINEAR_MIPMAP_NEAREST) ||
                     (minificationFilter === TextureMinificationFilter.LINEAR_MIPMAP_LINEAR);
 
-                // float textures only support nearest filtering, so override the sampler's settings
-                if (this._pixelDatatype === PixelDatatype.FLOAT) {
+                var context = this._context;
+                var pixelDatatype = this._pixelDatatype;
+
+                // float textures only support nearest filtering unless the linear extensions are supported, so override the sampler's settings
+                if ((pixelDatatype === PixelDatatype.FLOAT && !context.textureFloatLinear) || (pixelDatatype === PixelDatatype.HALF_FLOAT && !context.textureHalfFloatLinear)) {
                     minificationFilter = mipmap ? TextureMinificationFilter.NEAREST_MIPMAP_NEAREST : TextureMinificationFilter.NEAREST;
                     magnificationFilter = TextureMagnificationFilter.NEAREST;
                 }
 
-                var gl = this._context._gl;
+                var gl = context._gl;
                 var target = this._textureTarget;
 
                 gl.activeTexture(gl.TEXTURE0);
@@ -484,8 +523,6 @@ define([
         var gl = this._context._gl;
         var target = this._textureTarget;
 
-        // TODO: gl.pixelStorei(gl._UNPACK_ALIGNMENT, 4);
-
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(target, this._texture);
 
@@ -500,6 +537,13 @@ define([
 
         var preMultiplyAlpha = this._preMultiplyAlpha;
         var flipY = this._flipY;
+
+        var unpackAlignment = 4;
+        if (defined(arrayBufferView)) {
+            unpackAlignment = PixelFormat.alignmentInBytes(pixelFormat, pixelDatatype, width);
+        }
+
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, unpackAlignment);
 
         var uploaded = false;
         if (!this._initialized) {
@@ -533,7 +577,7 @@ define([
         }
 
         if (!uploaded) {
-            if (arrayBufferView) {
+            if (defined(arrayBufferView)) {
                 gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
                 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 
@@ -563,6 +607,7 @@ define([
      *
      * @exception {DeveloperError} Cannot call copyFromFramebuffer when the texture pixel format is DEPTH_COMPONENT or DEPTH_STENCIL.
      * @exception {DeveloperError} Cannot call copyFromFramebuffer when the texture pixel data type is FLOAT.
+     * @exception {DeveloperError} Cannot call copyFromFramebuffer when the texture pixel data type is HALF_FLOAT.
      * @exception {DeveloperError} Cannot call copyFrom with a compressed texture pixel format.
      * @exception {DeveloperError} This texture was destroyed, i.e., destroy() was called.
      * @exception {DeveloperError} xOffset must be greater than or equal to zero.
@@ -586,6 +631,9 @@ define([
         }
         if (this._pixelDatatype === PixelDatatype.FLOAT) {
             throw new DeveloperError('Cannot call copyFromFramebuffer when the texture pixel data type is FLOAT.');
+        }
+        if (this._pixelDatatype === PixelDatatype.HALF_FLOAT) {
+            throw new DeveloperError('Cannot call copyFromFramebuffer when the texture pixel data type is HALF_FLOAT.');
         }
         if (PixelFormat.isCompressedFormat(this._pixelFormat)) {
             throw new DeveloperError('Cannot call copyFrom with a compressed texture pixel format.');

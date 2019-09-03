@@ -1,4 +1,5 @@
-/*global require,Blob,JSHINT*/
+/*global require,Blob,JSHINT */
+/*global decodeBase64Data, embedInSandcastleTemplate */
 /*global gallery_demos, has_new_gallery_demos, hello_world_index*/// defined in gallery/gallery-index.js, created by build
 /*global sandcastleJsHintOptions*/// defined by jsHintOptions.js, created by build
 require({
@@ -27,10 +28,10 @@ require({
         location: '../Apps/Sandcastle/ThirdParty'
     }]
 }, [
-        "dijit/Dialog",
-        "dijit/form/Button",
-        "dijit/form/Form",
-        "dijit/form/Textarea",
+        'dijit/Dialog',
+        'dijit/form/Button',
+        'dijit/form/Form',
+        'dijit/form/Textarea',
         'CodeMirror/lib/codemirror',
         'dijit/layout/ContentPane',
         'dijit/popup',
@@ -102,7 +103,6 @@ require({
         ClipboardJS,
         pako) {
     'use strict';
-
     // attach clipboard handling to our Copy button
     var clipboardjs = new ClipboardJS('.copyButton');
 
@@ -178,7 +178,9 @@ require({
     var searchTerm = '';
     var searchRegExp;
     var hintTimer;
-    var currentTab = '';
+    var defaultDemo = 'Hello World';
+    var defaultLabel = 'Showcases';
+    var currentTab = defaultLabel;
     var newDemo;
     var demoHtml = '';
     var demoCode = '';
@@ -381,7 +383,7 @@ require({
         // make a copy of the options, JSHint modifies the object it's given
         var options = JSON.parse(JSON.stringify(sandcastleJsHintOptions));
         /*eslint-disable new-cap*/
-        if (!JSHINT(getScriptFromEditor(false), options)) {
+        if (!JSHINT(embedInSandcastleTemplate(jsEditor.getValue(), false), options)) {
             var hints = JSHINT.errors;
             for (i = 0, len = hints.length; i < len; ++i) {
                 var hint = hints[i];
@@ -538,22 +540,6 @@ require({
         }
     });
 
-    function getScriptFromEditor(addExtraLine) {
-        return 'function startup(Cesium) {\n' +
-               '    \'use strict\';\n' +
-               '//Sandcastle_Begin\n' +
-               (addExtraLine ? '\n' : '') +
-               jsEditor.getValue() +
-               '//Sandcastle_End\n' +
-               '    Sandcastle.finishedLoading();\n' +
-               '}\n' +
-               'if (typeof Cesium !== "undefined") {\n' +
-               '    startup(Cesium);\n' +
-               '} else if (typeof require === "function") {\n' +
-               '    require(["Cesium"], startup);\n' +
-               '}\n';
-    }
-
     var scriptCodeRegex = /\/\/Sandcastle_Begin\s*([\s\S]*)\/\/Sandcastle_End/;
 
     function activateBucketScripts(bucketDoc) {
@@ -619,10 +605,11 @@ require({
                 // Firefox line numbers are zero-based, not one-based.
                 var isFirefox = navigator.userAgent.indexOf('Firefox/') >= 0;
 
-                element.textContent = getScriptFromEditor(isFirefox);
+                element.textContent = embedInSandcastleTemplate(jsEditor.getValue(), isFirefox);
                 bucketDoc.body.appendChild(element);
             }
         };
+
         loadScript();
     }
 
@@ -700,10 +687,10 @@ require({
         queryObject = ioQuery.queryToObject(window.location.search.substring(1));
     }
     if (!defined(queryObject.src)) {
-        queryObject.src = 'Hello World.html';
+        queryObject.src = defaultDemo + '.html';
     }
     if (!defined(queryObject.label)) {
-        queryObject.label = 'Showcases';
+        queryObject.label = defaultLabel;
     }
 
     function loadFromGallery(demo) {
@@ -751,20 +738,10 @@ require({
 
                 applyLoadedDemo(code, html);
             } else if (window.location.hash.indexOf('#c=') === 0) {
-                // data stored in the hash as:
-                // Base64 encoded, raw DEFLATE compressed JSON array where index 0 is code, index 1 is html
                 var base64String = window.location.hash.substr(3);
-                // restore padding
-                while (base64String.length % 4 !== 0) {
-                    base64String += '=';
-                }
-                var jsonString = pako.inflate(atob(base64String), { raw: true, to: 'string' });
-                // we save a few bytes by omitting the leading [" and trailing "] since they are always the same
-                jsonString = '["' + jsonString + '"]';
-                json = JSON.parse(jsonString);
-                // index 0 is code, index 1 is html
-                code = json[0];
-                html = json[1];
+                var data = decodeBase64Data(base64String, pako);
+                code = data.code;
+                html = data.html;
 
                 applyLoadedDemo(code, html);
             } else {
@@ -929,17 +906,23 @@ require({
         return location.protocol + '//' + location.host + location.pathname;
     }
 
-    registry.byId('buttonShareDrop').on('click', function() {
-        var code = jsEditor.getValue();
-        var html = htmlEditor.getValue();
-
+    function makeCompressedBase64String(data) {
         // data stored in the hash as:
         // Base64 encoded, raw DEFLATE compressed JSON array where index 0 is code, index 1 is html
-        var jsonString = JSON.stringify([code, html]);
+        var jsonString = JSON.stringify(data);
         // we save a few bytes by omitting the leading [" and trailing "] since they are always the same
         jsonString = jsonString.substr(2, jsonString.length - 4);
         var base64String = btoa(pako.deflate(jsonString, { raw: true, to: 'string', level: 9 }));
         base64String = base64String.replace(/\=+$/, ''); // remove padding
+
+        return base64String;
+    }
+
+    registry.byId('buttonShareDrop').on('click', function() {
+        var code = jsEditor.getValue();
+        var html = htmlEditor.getValue();
+
+        var base64String = makeCompressedBase64String([code, html]);
 
         var shareUrlBox = document.getElementById('shareUrl');
         shareUrlBox.value = getBaseUrl() + '#c=' + base64String;
@@ -947,7 +930,7 @@ require({
     });
 
     registry.byId('buttonImport').on('click', function() {
-        var gistId = document.getElementById("gistId").value;
+        var gistId = document.getElementById('gistId').value;
         var gistParameter = '&gist=';
         var gistIndex = gistId.indexOf(gistParameter);
         if (gistIndex !== -1) {
@@ -955,6 +938,18 @@ require({
         }
         window.location.href = getBaseUrl() + '?gist=' + gistId;
     });
+
+    function getPushStateUrl(demo) {
+        var obj = {};
+        if (demo.name !== defaultDemo) {
+            obj.src = demo.name + '.html';
+        }
+        if (currentTab !== defaultLabel) {
+            obj.label = currentTab;
+        }
+        var query = ioQuery.objectToQuery(obj);
+        return query === '' ? query : '?' + query;
+    }
 
     registry.byId('buttonNew').on('click', function() {
         var htmlText = (htmlEditor.getValue()).replace(/\s/g, '');
@@ -964,17 +959,8 @@ require({
             confirmChange = window.confirm('You have unsaved changes. Are you sure you want to navigate away from this demo?');
         }
         if (confirmChange) {
+            window.history.pushState(newDemo, newDemo.name, getPushStateUrl(newDemo));
             loadFromGallery(newDemo).then(function() {
-                var demoSrc = newDemo.name + '.html';
-                var queries = window.location.search.substring(1).split('&');
-                for (var i = 0; i < queries.length; i++) {
-                    var key = queries[i].split('=')[0];
-                    if (key === "src") {
-                        if (demoSrc !== queries[i].split('=')[1].replace('%20', ' ')) {
-                            window.history.pushState(newDemo, newDemo.name, '?src=' + demoSrc + '&label=' + currentTab);
-                        }
-                    }
-                }
                 document.title = newDemo.name + ' - Cesium Sandcastle';
             });
         }
@@ -992,7 +978,7 @@ require({
         return local.headers + '\n' +
                htmlEditor.getValue() +
                '<script id="cesium_sandcastle_script">\n' +
-               getScriptFromEditor(false) +
+               embedInSandcastleTemplate(jsEditor.getValue(), false) +
                '</script>\n' +
                '</body>\n' +
                '</html>\n';
@@ -1017,25 +1003,20 @@ require({
     });
 
     registry.byId('buttonNewWindow').on('click', function() {
-        var baseHref = window.location.href;
-
-        //Handle case where demo is in a sub-directory.
-        var searchLen = window.location.search.length;
-        if (searchLen > 0) {
-            baseHref = baseHref.substring(0, baseHref.length - searchLen);
-        }
-
+        //Handle case where demo is in a sub-directory by modifying
+        //the demo's HTML to add a base href.
+        var baseHref = getBaseUrl();
         var pos = baseHref.lastIndexOf('/');
         baseHref = baseHref.substring(0, pos) + '/gallery/';
 
-        var html = getDemoHtml();
-        html = html.replace('<head>', '<head>\n    <base href="' + baseHref + '">');
-        var htmlBlob = new Blob([html], {
-            'type' : 'text/html;charset=utf-8',
-            'endings' : 'native'
-        });
-        var htmlBlobURL = URL.createObjectURL(htmlBlob);
-        window.open(htmlBlobURL, '_blank');
+        var code = jsEditor.getValue();
+        var html = htmlEditor.getValue();
+        var data = makeCompressedBase64String([code, html, baseHref]);
+
+        var url = getBaseUrl();
+        url = url.replace('index.html','') + 'standalone.html' + '#c=' + data;
+
+        window.open(url, '_blank');
         window.focus();
     });
 
@@ -1068,13 +1049,12 @@ require({
 
     function requestDemo(name) {
         return xhr.get({
-            url : 'gallery/' + name + '.html',
-            handleAs : 'text',
-            error : function(error) {
-                    loadFromGallery(gallery_demos[hello_world_index])
-                        .then(function() {
-                            deferredLoadError = true;
-                        });
+            url: 'gallery/' + name + '.html',
+            handleAs: 'text',
+            error: function(error) {
+                loadFromGallery(gallery_demos[hello_world_index]).then(function() {
+                    deferredLoadError = true;
+                });
             }
         });
     }
@@ -1107,6 +1087,7 @@ require({
             if (defined(queryObject.src)) {
                 if (demo.name === queryObject.src.replace('.html', '')) {
                     loadFromGallery(demo).then(function() {
+                        window.history.replaceState(demo, demo.name, getPushStateUrl(demo));
                         if (defined(queryObject.gist)) {
                             document.title = 'Gist Import - Cesium Sandcastle';
                         } else {
@@ -1191,7 +1172,7 @@ require({
         demoLink.className = 'linkButton';
         demoLink.href = 'gallery/' + encodeURIComponent(demo.name) + '.html';
 
-        if (demo.name === "Hello World") {
+        if (demo.name === 'Hello World') {
             newDemo = demo;
         }
         demoLink.onclick = function(e) {
@@ -1207,13 +1188,9 @@ require({
                 if (confirmChange) {
                     delete queryObject.gist;
                     delete queryObject.code;
-                    history.replaceState(null, document.title, window.location.pathname + window.location.search);
 
+                    window.history.pushState(demo, demo.name, getPushStateUrl(demo));
                     loadFromGallery(demo).then(function() {
-                        var demoSrc = demo.name + '.html';
-                        if (demoSrc !== window.location.search.substring(1)) {
-                            window.history.pushState(demo, demo.name, '?src=' + demoSrc + '&label=' + currentTab);
-                        }
                         document.title = demo.name + ' - Cesium Sandcastle';
                     });
                 }

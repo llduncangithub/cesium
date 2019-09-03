@@ -22,6 +22,7 @@
 </style>
 <div id="cesiumContainer" class="fullSize"></div>
 <div id="loadingOverlay"><h1>Loading...</h1></div>
+<div id="toolbar"></div>
 <img id="htmlOverlay" style="position: absolute" src="../images/Cesium_Logo_overlay.png">
 <script id="cesium_sandcastle_script">
 function startup(Cesium) {
@@ -46,10 +47,10 @@ viewer.scene.preRender.addEventListener(function() {
 //Sandcastle_End
     Sandcastle.finishedLoading();
 }
-if (typeof Cesium !== "undefined") {
+if (typeof Cesium !== 'undefined') {
     startup(Cesium);
-} else if (typeof require === "function") {
-    require(["Cesium"], startup);
+} else if (typeof require === 'function') {
+    require(['Cesium'], startup);
 }
 </script>
 </body>
